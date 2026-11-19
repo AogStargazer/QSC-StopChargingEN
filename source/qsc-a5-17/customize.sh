@@ -18,7 +18,7 @@ qsc_perm() {
 }
 
 ui_print " -------------------------- "
-ui_print " ------ 安装中，请稍等 ------ "
+ui_print " ------ Installing. Please wait. ------ "
 ui_print " -------------------------- "
 
 for f in qsc_daemon.sh service.sh probe.sh action.sh uninstall.sh; do
@@ -38,5 +38,5 @@ if command -v am >/dev/null 2>&1 && command -v pm >/dev/null 2>&1; then
 		am start -a android.intent.action.VIEW -d 'http://www.coolapk.com/u/1429422' >/dev/null 2>&1
 	fi
 fi
-ui_print " ----- 安装已完成，请重启 ---- "
+ui_print " ----- Installation complete. Please reboot. ---- "
 ui_print " -------------------------- "
