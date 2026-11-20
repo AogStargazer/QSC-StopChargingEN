@@ -1,7 +1,7 @@
 #!/system/bin/sh
-# QSC 定量停充 - 遗留模式守护脚本(安卓1.6-5.x SuperSU/init.d)
-# 原版逻辑保留，替换为 toybox 兼容的解析方式，并在开机后周期性重新扫描 sysfs 开关。
-# 配置每 3 秒重新读取一次，修改 config.conf 即时生效，无需重启。
+# QSC Stop Charging daemon for legacy root (Android 1.6–5.x, SuperSU/init.d).
+# Use Toybox-compatible parsing and rescan sysfs periodically after boot.
+# Reload config.conf every three seconds.
 
 MODDIR=${0%/*}
 MCA_IF="/sys/class/xm_power/charger/charge_interface/input_suspend"
@@ -10,7 +10,7 @@ PIDFILE="$MODDIR/qsc.pid"
 LOG="$MODDIR/log.log"
 NOW_C="$MODDIR/now_c"
 POWER_SWITCH="$MODDIR/power_switch"
-# ---------------- Android 5-11 兼容：busybox 兜底 ----------------
+# ---------------- Android 5–11 compatibility: BusyBox fallback ----------------
 BUSYBOX=""
 for p in /data/adb/magisk/busybox /data/adb/ksu/bin/busybox /system/xbin/busybox /system/bin/busybox /sbin/busybox; do
 	[ -x "$p" ] && { BUSYBOX="$p"; break; }
@@ -27,7 +27,7 @@ if [ -n "$BUSYBOX" ]; then
 	PATH="$BB_BIN:$PATH"
 fi
 
-# ---------------- 单实例保护 ----------------
+# ---------------- Single-instance guard ----------------
 if [ -f "$PIDFILE" ]; then
 	old_pid="$(cat "$PIDFILE" 2>/dev/null)"
 	if [ -n "$old_pid" ] && [ "$old_pid" != "$$" ] && kill -0 "$old_pid" 2>/dev/null; then
@@ -40,7 +40,7 @@ echo "$$" > "$PIDFILE"
 trap 'rm -f "$PIDFILE"' EXIT
 trap 'rm -f "$PIDFILE"; exit 0' TERM INT HUP
 
-# ---------------- 配置读取 ----------------
+# ---------------- Configuration loading ----------------
 conf_get() {
 	v="$(sed -n "s/^[[:space:]]*$1=//p" "$MODDIR/config.conf" 2>/dev/null | head -n 1 | sed 's/[^0-9].*//')"
 	case "$v" in
@@ -82,7 +82,7 @@ update_config_log() {
 	new_sig="$POWER_STOP|$POWER_START|$POWER_STOP_TIME|$CHARGE_FULL|$POWER_RESET"
 	[ "$new_sig" = "$CONFIG_SIG" ] && return
 	if [ -n "$CONFIG_SIG" ]; then
-		log_line "配置已更新: 停止电量=$POWER_STOP 恢复电量=$POWER_START 延时=$POWER_STOP_TIME charge_full=$CHARGE_FULL power_reset=$POWER_RESET"
+		log_line "Configuration reloaded: stop=$POWER_STOP resume=$POWER_START delay=$POWER_STOP_TIME charge_full=$CHARGE_FULL power_reset=$POWER_RESET"
 	fi
 	CONFIG_SIG="$new_sig"
 }
@@ -114,7 +114,7 @@ set_state() {
 	chmod 0644 "$MODDIR/module.prop" 2>/dev/null
 }
 
-# ---------------- 电池状态读取 ----------------
+# ---------------- Battery status ----------------
 read_battery() {
 	BAT_LEVEL=""
 	BAT_STATUS=""
@@ -129,7 +129,7 @@ read_battery() {
 			BAT_POWERED=1 ;;
 	esac
 
-	# dumpsys 异常时回退 sysfs
+	# Fall back to sysfs if dumpsys fails.
 	if [ -z "$BAT_LEVEL" ] && [ -r /sys/class/power_supply/battery/capacity ]; then
 		BAT_LEVEL="$(cat /sys/class/power_supply/battery/capacity 2>/dev/null)"
 		case "$BAT_LEVEL" in ''|*[!0-9]*) BAT_LEVEL="" ;; esac
@@ -156,12 +156,12 @@ read_battery() {
 	esac
 }
 
-# ---------------- 充电开关节点管理 ----------------
+# ---------------- Charging controls ----------------
 SEEN=""
 SWITCH_LIST=""
 
 append_entry() {
-	# $1=路径 $2=start值 $3=stop值
+	# $1=path $2=resume value $3=stop value
 	[ -n "$1" ] || return
 	case " $SEEN " in
 		*" $1 "*) return ;;
@@ -175,7 +175,7 @@ build_switch_list() {
 	SEEN=""
 	SWITCH_LIST=""
 
-	# 旧版 list_switch 兼容：用户/原模块扫描出的自定义节点优先
+	# Prefer custom controls from the legacy list_switch.
 	if [ -f "$MODDIR/list_switch" ]; then
 		while IFS= read -r line; do
 			case "$line" in
@@ -189,7 +189,7 @@ build_switch_list() {
 		done < "$MODDIR/list_switch"
 	fi
 
-	# 内置常见节点（原版列表 + 安卓14-17 机型常见新增位置）
+	# Built-in controls, including common Android 14–17 paths.
 	append_entry /sys/class/power_supply/battery/batt_slate_mode 0 1
 	append_entry /sys/class/power_supply/battery/store_mode 0 1
 	append_entry /sys/class/power_supply/battery/input_suspend 0 1
@@ -200,12 +200,12 @@ build_switch_list() {
 	append_entry /sys/class/power_supply/usb/input_suspend 0 1
 	append_entry /sys/class/power_supply/idt/pin_enabled 1 0
 	append_entry /sys/class/qcom-battery/input_suspend 0 1
-	# 一加 / OPlus ColorOS：mmi_charging_enable 1=允许充电，0=停止充电
+	# OnePlus/OPlus ColorOS: mmi_charging_enable 1 allows charging and 0 stops it.
 	append_entry /sys/class/oplus_chg/battery/mmi_charging_enable 1 0
 	append_entry /sys/devices/virtual/oplus_chg/battery/mmi_charging_enable 1 0
 	append_entry /sys/class/power_supply/battery/charge_behaviour auto inhibit-charge
-	# charge_control_limit 的 ABI 语义是「最大充电电流」，不是停充开关；
-	# 部分机型写 0 成功但恢复写 max 失败（issue #4），因此不再自动写入，仅由 probe.sh 诊断展示。
+	# The charge_control_limit ABI controls maximum charging current.
+	# Some devices accept zero but fail to restore the maximum (issue #4). List it in probe.sh only.
 	append_entry /sys/kernel/debug/google_charger/chg_suspend 0 1
 	append_entry /sys/kernel/debug/google_charger/chg_mode 1 0
 	append_entry /proc/driver/charger_limit_enable 0 1
@@ -214,13 +214,13 @@ build_switch_list() {
 	append_entry /proc/mtk_battery_cmd/en_power_path 1 0
 	append_entry /proc/mtk_charger/en_power_path 1 0
 
-	# 通用扫描：只匹配充电控制相关且可安全 0/1 写入的文件
+	# Scan for charging controls that accept safe binary writes.
 	for f in /sys/class/power_supply/*/* /sys/class/power_supply/*/*/* /sys/class/qcom-battery/*; do
 		[ -f "$f" ] || continue
 		n="${f##*/}"
-		# 小米14等机型：handle_stop_charging 是内核处理节点，重复写入会引发反复充停
+		# Skip handle_stop_charging on devices like Xiaomi 14 because repeat writes can cycle charging.
 		[ "$n" = "handle_stop_charging" ] && continue
-		# charge_control_limit 不作为充电开关写入（见上）
+		# Skip charge_control_limit as described above.
 		[ "$n" = "charge_control_limit" ] && continue
 		case "$n" in
 			*charge_behaviour*)
@@ -232,7 +232,7 @@ build_switch_list() {
 		esac
 	done
 
-	# 写出本次实际发现，供 probe.sh / 用户查看
+	# Record detected nodes for diagnostics.
 	: > "$MODDIR/qsc_nodes.log"
 	for e in $SWITCH_LIST; do
 		echo "${e%%,*}" >> "$MODDIR/qsc_nodes.log"
@@ -281,7 +281,7 @@ apply_side() {
 	done
 	if [ -n "$fails" ]; then
 		if [ ! -f "$MODDIR/.fail_warn" ]; then
-			log_line "以下充电开关节点写入失败（可能被SELinux或权限拦截）:$fails"
+			log_line "Failed to write these charging controls. Check SELinux and permissions: $fails"
 			touch "$MODDIR/.fail_warn"
 		fi
 	else
@@ -338,7 +338,7 @@ qsc_power_stop() {
 	fi
 	if [ "$rc" = "0" ]; then
 		NODE_WARN=0
-		log_line "写入停止充电开关:$ok"
+		log_line "Set charging controls to stop: $ok"
 		return 0
 	fi
 	if [ "$rc" = "1" ]; then
@@ -346,7 +346,7 @@ qsc_power_stop() {
 	fi
 	if [ -z "$SWITCH_LIST" ] && [ ! -e "$MCA_IF" ] && [ ! -e "$MCA_EN_IF" ] && [ "$NODE_WARN" = "0" ]; then
 		NODE_WARN=1
-		log_line "未找到可用的充电开关节点，请运行 probe.sh 检查设备节点后反馈"
+		log_line "No usable charging controls found. Run probe.sh to check device support."
 	fi
 	return 2
 }
@@ -379,7 +379,7 @@ qsc_power_start() {
 	dumpsys battery reset >/dev/null 2>&1
 	if [ "$rc" = "0" ]; then
 		NODE_WARN=0
-		log_line "写入恢复充电开关:$ok"
+		log_line "Set charging controls to resume: $ok"
 		return 0
 	fi
 	return $rc
@@ -392,19 +392,19 @@ do_power_reset() {
 	qsc_power_start
 }
 
-# ---------------- 初始化 ----------------
+# ---------------- Initialization ----------------
 dumpsys battery reset >/dev/null 2>&1
 rm -f "$NOW_C"
 load_config
 update_config_log
-log_line "启动: 停止电量=$POWER_STOP 恢复电量=$POWER_START 延时=$POWER_STOP_TIME charge_full=$CHARGE_FULL power_reset=$POWER_RESET"
+log_line "Started: stop=$POWER_STOP resume=$POWER_START delay=$POWER_STOP_TIME charge_full=$CHARGE_FULL power_reset=$POWER_RESET"
 build_switch_list
-[ -n "$SWITCH_LIST" ] || log_line "开机扫描未发现充电开关节点，将持续重新扫描"
+[ -n "$SWITCH_LIST" ] || log_line "No charging controls found at boot. Scanning will continue."
 
 LOOP=0
 NODE_WARN=0
 
-# ---------------- 主循环 ----------------
+# ---------------- Main loop ----------------
 while true; do
 	LOOP="$((LOOP + 1))"
 	load_config
@@ -416,7 +416,7 @@ while true; do
 		continue
 	fi
 
-	# 每 20 轮（约 60 秒）重新扫描一次，兼容开机后延迟出现的节点
+	# Rescan every 20 iterations (about 60 seconds) for nodes that appear after boot.
 	if [ "$((LOOP % 20))" = "1" ]; then
 		build_switch_list
 	fi
@@ -427,9 +427,9 @@ while true; do
 		POWER_STOP_NOW=110
 		POWER_START_NOW=105
 		if [ ! -f "$MODDIR/off_d" ]; then
-			set_state "模块已关闭"
+			set_state "Module disabled"
 			touch "$MODDIR/off_d"
-			log_line "检测到关闭开关，模块暂停（删除 off_qsc 或再点一次模块执行按钮恢复）"
+			log_line "Module paused. Remove off_qsc or run the module action again to resume."
 			rm -f "$NOW_C" "$MODDIR/power_on" "$MODDIR/power_off"
 		fi
 	else
@@ -437,7 +437,7 @@ while true; do
 		POWER_START_NOW="$POWER_START"
 		if [ -f "$MODDIR/off_d" ]; then
 			rm -f "$MODDIR/off_d"
-			log_line "模块已重新开启"
+			log_line "Module enabled again."
 		fi
 	fi
 
@@ -448,13 +448,13 @@ while true; do
 	if [ "$BAT_CHARGING" = "1" ]; then
 		rotate_log
 
-		# 电量停止
+		# Check the cutoff threshold.
 		if [ "$POWER_STOP_NOW" -gt "$POWER_START_NOW" ] && [ "$BAT_LEVEL" -ge "$POWER_STOP_NOW" ]; then
 			if [ "$CHARGE_FULL" = "1" ]; then
 				if [ "$BAT_LEVEL" = "100" ] && [ "$POWER_STOP_NOW" = "100" ]; then
 					if [ "$BAT_STATUS" = "5" ]; then
 						rm -f "$NOW_C"
-						log_line "电量$BAT_LEVEL 触发充满再停功能 当前已充满"
+						log_line "Battery at ${BAT_LEVEL}%. Full-charge cutoff triggered."
 					else
 						full_log=1
 						now_current="$(cat /sys/class/power_supply/battery/current_now 2>/dev/null)"
@@ -481,7 +481,7 @@ while true; do
 									if [ "$now_current_n" -ge 3 ]; then
 										full_log=0
 										rm -f "$NOW_C"
-										log_line "电量$BAT_LEVEL 触发充满再停功能 当前电流$now_current"
+										log_line "Battery at ${BAT_LEVEL}%. Waiting for full-charge cutoff. Current: $now_current"
 									fi
 									;;
 							esac
@@ -496,11 +496,11 @@ while true; do
 			fi
 		fi
 
-		# 执行停止充电
+		# Apply the charging cutoff.
 		if [ "$switch_stop_mode" = "1" ]; then
 			if [ "$CHARGE_FULL" != "1" ] && [ ! -f "$POWER_SWITCH" ]; then
 				if [ "$POWER_STOP_TIME" -gt "0" ]; then
-					log_line "电量$BAT_LEVEL 延时功能 继续充电$POWER_STOP_TIME秒 倒计时中"
+					log_line "Battery at ${BAT_LEVEL}%. Charging for another $POWER_STOP_TIME seconds."
 					sleep "$POWER_STOP_TIME"
 				fi
 			fi
@@ -509,31 +509,31 @@ while true; do
 			rc=$?
 			touch "$POWER_SWITCH"
 			if [ "$rc" = "0" ]; then
-				log_line "电量$BAT_LEVEL 停止充电"
+				log_line "Battery at ${BAT_LEVEL}%. Charging stopped."
 			fi
 		else
 			reset_log=1
 		fi
 
 		if [ ! -f "$MODDIR/power_on" ] && [ "$off_qsc" != "1" ]; then
-			set_state "充电中"
+			set_state "Charging"
 			rm -f "$MODDIR/power_off"
 			touch "$MODDIR/power_on"
 			if [ "$POWER_RESET" = "1" ] && [ "$reset_log" = "1" ]; then
 				do_power_reset
-				log_line "电量$BAT_LEVEL 触发自动拔插功能"
+				log_line "Battery at ${BAT_LEVEL}%. Triggering automatic reconnect."
 			fi
 		fi
 	else
 		if [ ! -f "$MODDIR/power_off" ] && [ "$off_qsc" != "1" ]; then
-			set_state "未充电"
+			set_state "Not charging"
 			rm -f "$NOW_C"
 			rm -f "$MODDIR/power_on"
 			touch "$MODDIR/power_off"
 		fi
 	fi
 
-	# 恢复充电
+	# Resume charging.
 	if [ -f "$POWER_SWITCH" ]; then
 		if [ "$BAT_LEVEL" -le "$POWER_START_NOW" ]; then
 			sleep 3
@@ -541,7 +541,7 @@ while true; do
 			rc=$?
 			rm -f "$POWER_SWITCH"
 			if [ "$rc" = "0" ]; then
-				log_line "电量$BAT_LEVEL 恢复充电"
+				log_line "Battery at ${BAT_LEVEL}%. Charging resumed."
 			fi
 		fi
 	fi

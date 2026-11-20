@@ -1,50 +1,45 @@
-QSC 定量停充 - 安卓1-5 遗留 root 实验版
-==========================================
+QSC Stop Charging - Experimental legacy root edition
+=====================================================
 
-一、适用环境
+Requirements
 ------------
-- 安卓 1.6 - 5.x，且已经 root（SuperSU/授权管理时代）。
-- 必须装有 busybox（/system/xbin/busybox 或 /system/bin/busybox）。
-- 内核必须暴露一个"可写的充电控制节点"，否则无法停充（见下文）。
-- 本包是实验性质：安卓 1-4 时代的手机/内核大多没有充电开关节点，
-  probe 扫描不到 writable:yes 的节点，就无法停充，这不是脚本问题。
+- Rooted Android 1.6 to 5.x (SuperSU or equivalent).
+- BusyBox at /system/xbin/busybox or /system/bin/busybox.
+- A writable kernel charging control. Most Android 1-4 devices lack one.
 
-二、安装
---------
-1. 把本目录全部文件传到手机，例如 /data/local/tmp/qsc/
-2. 终端执行（root）：
+Installation
+------------
+1. Copy every file in this directory to the device, for example /data/local/tmp/qsc/.
+2. Run as root:
    su -c sh /data/local/tmp/qsc/install.sh
-3. 安装器会：
-   - 复制文件到 /data/qsc/
-   - 用 busybox 建立命令软链接到 /data/qsc/bin/
-   - 有 /system/etc/init.d 就装启动项 99qsc
-   - 没有 init.d 就尝试追加到 /system/etc/install-recovery.sh
-   - 都没有时会在输出里提示用 SManager 等工具开机执行 sh /data/qsc/boot.sh
-4. 重启手机。
+3. The installer copies files to /data/qsc/ and creates BusyBox links in
+   /data/qsc/bin/. It adds the 99qsc init.d entry if /system/etc/init.d exists.
+   Otherwise it tries /system/etc/install-recovery.sh. If neither exists,
+   configure SManager or similar software to run sh /data/qsc/boot.sh at boot.
+4. Reboot.
 
-三、配置与诊断
---------------
-- 配置：/data/qsc/config.conf（每 3 秒热重载，改完即生效）
-- 日志：/data/qsc/log.log
-- 诊断：su -c sh /data/qsc/probe.sh   然后把 probe.log 发出来
+Configuration and diagnostics
+-----------------------------
+Edit /data/qsc/config.conf. Settings reload every three seconds. The log is
+/data/qsc/log.log. To create a diagnostic report:
+   su -c sh /data/qsc/probe.sh
 
-四、判断能不能用
-----------------
-- probe.log 里节点后 writable:yes 且能切到 0/1：有希望停充；
-- 全是 writable:no 或没有节点：该内核不支持用户态停充，无法适配；
-- 日志出现"写入停止充电开关: /sys/..."但电量仍上升：
-  节点写进去了但切不断充电，需要按 probe 结果找其它节点。
-- v16 起不再自动写入 charge_control_limit（内核 ABI 语义为最大充电电流，不是停充开关）；probe 仍会列出该节点供诊断。
-- v17 起可用 `log_enabled=0` 停止写入新日志，或用 `log_max_lines` 调整自动清理阈值（默认300，最低100）。
-- v18 起支持一加 / OPlus ColorOS 的 `mmi_charging_enable` 节点（1=允许充电，0=停止充电）。
+Check probe.log for a node marked writable:yes that accepts 0 and 1. If there
+are no writable candidates, the kernel lacks a supported userspace control.
+If the battery percentage keeps rising after a successful write, check the
+other candidate nodes. Since v16, charge_control_limit appears in diagnostics
+only. It controls maximum current. Since v17, log_enabled=0 stops new log
+entries and log_max_lines sets the trim threshold (default 300, minimum 100).
+Since v18, OPlus ColorOS mmi_charging_enable is supported (1 allows charging,
+0 stops it).
 
-五、手动启动/停止
------------------
-- 启动：su -c "sh /data/qsc/boot.sh"
-- 停止：kill $(cat /data/qsc/qsc.pid)
-- 临时关闭停充：touch /data/qsc/off_qsc
-- 恢复：rm -f /data/qsc/off_qsc
+Manual controls
+---------------
+Start:  su -c "sh /data/qsc/boot.sh"
+Stop:   kill $(cat /data/qsc/qsc.pid)
+Pause:  touch /data/qsc/off_qsc
+Resume: rm -f /data/qsc/off_qsc
 
-六、卸载
---------
+Uninstall
+---------
 su -c sh /data/local/tmp/qsc/uninstall.sh

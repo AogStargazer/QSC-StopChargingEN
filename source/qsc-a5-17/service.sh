@@ -1,6 +1,6 @@
 #!/system/bin/sh
-# QSC service: 守护进程，负责在开机后保持定量停充守护脚本存活
-# Magisk / KernelSU / ReSukiSU / APatch 通用
+# Run and supervise the QSC daemon after boot.
+# Supports Magisk, KernelSU, ReSukiSU, and APatch.
 MODDIR=${0%/*}
 PATH="/system/bin:/system/xbin:$PATH"
 export PATH
@@ -11,7 +11,7 @@ chmod 0644 "$MODDIR/config.conf" 2>/dev/null
 
 rm -f "$MODDIR/now_c"
 
-# 已有存活实例则不再启动第二个守护进程（校验 cmdline，避免重启后 PID 复用误判）
+# Check cmdline before reusing a PID so a stale PID cannot suppress startup.
 if [ -f "$MODDIR/qsc.pid" ]; then
 	existing="$(cat "$MODDIR/qsc.pid" 2>/dev/null)"
 	if [ -n "$existing" ] && kill -0 "$existing" 2>/dev/null; then
@@ -75,8 +75,8 @@ if [ ! -f "$MODDIR/.first_boot_v2" ]; then
 	) &
 fi
 
-# Android 14-17: 部分机型 sysfs 节点在开机后较晚才生成，
-# 守护进程内部会定期重新扫描，这里只负责保活。
+# On Android 14–17, some sysfs nodes appear late during boot.
+# The daemon rescans them. This script only supervises it.
 while true; do
 	sh "$MODDIR/qsc_daemon.sh"
 	sleep 30

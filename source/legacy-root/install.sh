@@ -1,6 +1,6 @@
 #!/system/bin/sh
-# QSC 遗留 root 安装器（安卓1.6-5.x，SuperSU/init.d 时代）
-# 用法：su -c sh /data/local/tmp/qsc/install.sh
+# QSC legacy root installer for Android 1.6–5.x (SuperSU/init.d).
+# Usage: su -c sh /data/local/tmp/qsc/install.sh
 
 SRC=${0%/*}
 DST=/data/qsc
@@ -10,7 +10,7 @@ for p in /system/xbin/busybox /system/bin/busybox /sbin/busybox /data/local/tmp/
 	[ -x "$p" ] && { BB="$p"; break; }
 done
 if [ -z "$BB" ]; then
-	echo "未找到 busybox，请先把 busybox 安装到 /system/xbin/busybox 再运行本脚本。"
+	echo "BusyBox was not found. Install it at /system/xbin/busybox and rerun this script."
 	exit 1
 fi
 
@@ -33,23 +33,23 @@ if [ -d "$INITD" ]; then
 	"$BB" mount -o rw,remount /system 2>/dev/null
 	if cp "$SRC/99qsc" "$INITD/99qsc" 2>/dev/null; then
 		chmod 0755 "$INITD/99qsc" 2>/dev/null
-		echo "已安装 init.d 启动项: $INITD/99qsc"
+		echo "Installed init.d entry: $INITD/99qsc"
 	else
-		echo "init.d 存在但写入失败，请手动复制 99qsc 到 $INITD/"
+		echo "Could not write the init.d entry. Copy 99qsc to $INITD/ manually."
 	fi
 else
 	IR=/system/etc/install-recovery.sh
 	if [ -f "$IR" ]; then
 		mount -o rw,remount /system 2>/dev/null
 		if "$BB" grep -q qsc "$IR" 2>/dev/null; then
-			echo "install-recovery.sh 已包含 QSC 启动项"
+			echo "install-recovery.sh already contains the QSC startup entry."
 		else
 			echo "[ -x /data/qsc/boot.sh ] && /data/qsc/boot.sh &" >> "$IR" 2>/dev/null
-			echo "已追加启动项到 $IR"
+			echo "Added the startup entry to $IR."
 		fi
 	else
-		echo "未找到 init.d / install-recovery.sh。"
-		echo "请用 ROM 自带自启功能或 SManager 等工具，开机执行: sh /data/qsc/boot.sh"
+		echo "Neither init.d nor install-recovery.sh was found."
+		echo "Use your ROM startup feature or a tool such as SManager to run this at boot: sh /data/qsc/boot.sh"
 	fi
 fi
 
@@ -62,5 +62,5 @@ fi
 ( PATH="$DST/bin:$PATH" sh "$DST/qsc_daemon.sh" >/dev/null 2>&1 & )
 
 echo ""
-echo "安装完成。配置: $DST/config.conf  日志: $DST/log.log"
-echo "诊断: su -c sh $DST/probe.sh"
+echo "Installation complete. Configuration: $DST/config.conf  Log: $DST/log.log"
+echo "Diagnostics: su -c sh $DST/probe.sh"

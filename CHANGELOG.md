@@ -1,119 +1,97 @@
-# 更新日志
+# Changelog
 
-## v18 — 20261004（versionCode 2026100422）
+## v18 — 20261004 (versionCode 2026100422)
 
-- 新增一加 / OPlus ColorOS 充电开关 `mmi_charging_enable`：`1` 允许充电，`0` 停止充电；
-- 同时覆盖 `/sys/class/oplus_chg/battery/` 与 `/sys/devices/virtual/oplus_chg/battery/` 路径；
-- 修复一加 Ace 2 Pro（ColorOS 16）开机扫描不到充电开关节点的问题；
-- 安卓 5-17 适配版与 1-5 遗留 root 版同步更新；
-- `versionCode`：2026100421 → 2026100422。
+- Added support for the OnePlus/OPlus ColorOS charging control `mmi_charging_enable`: `1` allows charging and `0` stops it.
+- Check both `/sys/class/oplus_chg/battery/` and `/sys/devices/virtual/oplus_chg/battery/`.
+- Fixed boot-time charging-control detection on OnePlus Ace 2 Pro with ColorOS 16.
+- Updated both the Android 5–17 module and the experimental legacy root edition.
 
-## v17 — 20261004（versionCode 2026100421）
+## v17 — 20261004 (versionCode 2026100421)
 
-- 新增 `log_enabled` 配置：`1` 记录日志（默认），`0` 停止写入新日志；已有 `log.log` 保留，可手动删除；
-- 新增 `log_max_lines` 配置：日志超过阈值的行数时自动删除最旧部分，默认 `300`，最低 `100`；
-- 安卓 5-17 适配版与 1-5 遗留 root 版同步更新；
-- `versionCode`：2026100420 → 2026100421。
+- Added `log_enabled`. Set it to `0` to stop writing new entries. Existing logs are kept.
+- Added `log_max_lines` to trim old entries automatically. Default: 300. Minimum: 100.
+- Updated both editions.
 
-## v16 — 20261004（versionCode 2026100420）
+## v16 — 20261004 (versionCode 2026100420)
 
-- 修复小米 13（fuxi，HyperOS 4 / 内核 5.15）反馈：`charge_control_limit` 停充时写 0 成功，恢复充电时写回 max 失败，日志反复出现「节点写入失败」（issue #4）；
-- 根因：该节点在内核 ABI 中的语义是「最大充电电流」，不是充电开关；v6 的 0/max 用法只适用于特定厂商实现，小米 17 Pro 已改走 MCA；
-- v16 起不再自动写入 `charge_control_limit`，保留在 `probe.sh` 中供诊断，实际停充 / 恢复由 `qcom-battery/input_suspend` 等专用开关完成；
-- 安卓 5-17 适配版与 1-5 遗留 root 版同步修复；
-- `versionCode`：2026100419 → 2026100420。
+- Fixed repeated write failures on Xiaomi 13 (fuxi, HyperOS 4, kernel 5.15, issue #4). Writing zero succeeded, but restoring the maximum failed.
+- The kernel defines `charge_control_limit` as a maximum current, so it is now listed only by `probe.sh`. Dedicated controls such as `qcom-battery/input_suspend` handle charging. Xiaomi 17 Pro already uses MCA.
+- Fixed both editions.
 
-## v15 — 20261004（versionCode 2026100419）
+## v15 — 20261004 (versionCode 2026100419)
 
-- 常规更新与优化。
+- Maintenance and optimization.
 
-## v14 — 20261004（versionCode 2026100418）
+## v14 — 20261004 (versionCode 2026100418)
 
-- 常规更新与优化。
+- Maintenance and optimization.
 
-## v13 — 20261004（versionCode 2026100417）
+## v13 — 20261004 (versionCode 2026100417)
 
-- 移除温控停充功能：不再按电池温度停止 / 恢复充电（充电火力全开）；
-- 移除 `打开定量停充.sh` / `关闭定量停充.sh`：管理器「执行」按钮改为点一次开启、再点一次关闭；
-- 清理温度相关代码与无用变量（`TEMP_*`、`BAT_TEMP`、`cpu_log*`、`log_log*` 等）；
-- `versionCode`：2026100416 → 2026100417。
+- Removed temperature-based charging thresholds.
+- Replaced the two toggle scripts with a single root manager action.
+- Removed obsolete temperature settings and variables including `TEMP_*`, `BAT_TEMP`, `cpu_log*`, and `log_log*`.
 
-## v12 — 20261004（versionCode 2026100416）
+## v12 — 20261004 (versionCode 2026100416)
 
-- 修复 v11 遗留问题：展锐 `stop_charge` 机型（天翼一号 2021 反馈）用 `dumpsys battery unplug` 隐藏充电标识后，系统电量显示冻结在触发值，模块读不到真实电量、无法按 `power_start` 恢复充电；
-- 隐藏标识期间改用 sysfs 真实电量做阈值判断，并尝试把真实电量同步回系统显示；恢复充电时 `dumpsys battery reset` 照常执行；
-- `versionCode`：2026100415 → 2026100416。
+- Fixed frozen battery capacity readings on Unisoc `stop_charge` devices while the charging icon is hidden. This could prevent charging from resuming at `power_start`.
+- Read capacity from sysfs during the simulated unplug state and update the system display. Reset the simulated state when charging resumes.
 
-## v11 — 20261004（versionCode 2026100415）
+## v11 — 20261004 (versionCode 2026100415)
 
-- 新增 `hide_charging_icon`（默认自动）：展锐 `charger.0/stop_charge` 机型停充后，用 `dumpsys battery unplug` 隐藏充电标识，恢复时 `dumpsys battery reset`；
-- 解决天翼一号 2021（Unisoc UD710）停充后充电标识不消失的问题；
-- `versionCode`：2026100414 → 2026100415。
+- Added `hide_charging_icon` with automatic defaults. On Unisoc `charger.0/stop_charge` devices, use the simulated unplug state to hide the icon until charging resumes.
+- Fixed the charging icon on Tianyi No. 1 2021 (Unisoc UD710).
 
-## v10 — 20261004（versionCode 2026100414）
+## v10 — 20261004 (versionCode 2026100414)
 
-- 修复小米 17 Pro 停充后充电图标不消失：`input_suspend` 投票改用 `micharge` 客户端，内核会据此把电池状态上报为 `DISCHARGING`，系统充电图标随之消失；
-- `charge_enable` 仍用 `qsc` 客户端直接关闭充电；一个负责真正断电，一个负责状态显示；
-- 机型反馈：小米 17 Pro 实测确认（停充生效、充电图标随阈值退出）；
-- `versionCode`：2026100413 → 2026100414。
+- On Xiaomi 17 Pro, use the `micharge` client for the `input_suspend` vote so the battery reports `DISCHARGING` and the icon disappears.
+- The `qsc` client still controls charging through `charge_enable`. Tested on Xiaomi 17 Pro.
 
-## v9 — 20261004（versionCode 2026100413）
+## v9 — 20261004 (versionCode 2026100413)
 
-- 修复小米 17 Pro「写入成功但仍在充电」：仅挂起 `input_suspend` 只限制了输入，主充电路径仍然开启；
-- 改用 MCA `charge_enable` 直接关闭充电：停止充电写 `qsc all 0`，恢复充电写 `qsc all 1`；`input_suspend` 保留为辅助控制；
-- `versionCode`：2026100412 → 2026100413。
+- Fixed Xiaomi 17 Pro continuing to charge after a successful `input_suspend` write.
+- Use MCA `charge_enable`: `qsc all 0` stops charging and `qsc all 1` resumes it. Retain `input_suspend` as a supplementary control.
 
-## v8 — 20261004（versionCode 2026100412）
+## v8 — 20261004 (versionCode 2026100412)
 
-- 定位小米 17 Pro 根因：其电池驱动的 `charge_control_limit` 是「显示可写但 set 为空」的实现，写入无效；真正的控制接口是 MCA `xm_power` 充电接口；
-- 新增 MCA 支持：向 `/sys/class/xm_power/charger/charge_interface/input_suspend` 写入 `qsc all 1` 停止充电、`qsc all 0` 恢复充电；
-- `probe.sh` 加入该节点与 `xm_power` 目录列举，并修正 battery / usb / wireless 属性列举（之前 `ls` 未跟随软链接）；
-- 机型反馈：红米 Note 12 Turbo 实测可用；
-- `versionCode`：2026100411 → 2026100412。
+- Found that Xiaomi 17 Pro exposes `charge_control_limit` but does not implement its setter.
+- Added initial MCA support through `/sys/class/xm_power/charger/charge_interface/input_suspend`.
+- Updated the probe to list `xm_power` and follow symlinks for battery, USB, and wireless properties.
+- Redmi Note 12 Turbo was confirmed working.
 
-## v7 — 20261004（versionCode 2026100411）
+## v7 — 20261004 (versionCode 2026100411)
 
-- 常规更新与优化。
-- 停充逻辑与 v6 一致（含小米 17 Pro 的 `charge_control_limit` 适配尝试）；
-- `versionCode`：2026100410 → 2026100411。
+- Maintenance and optimization. Charging behavior matches v6.
 
-## v6 — 20261004（versionCode 2026100410）
+## v6 — 20261004 (versionCode 2026100410)
 
-- 尝试适配小米 17 Pro：新增标准 `charge_control_limit` 支持（停止充电写 `0`，恢复充电写 `charge_control_limit_max`，该机为 16）；
-- `probe.sh` 按文件权限判断真实可写性（不再被 root 的 `-w` 误判），并完整列出 battery / usb / wireless 的全部属性；
-- v5 的 `charge_behaviour` 支持保留；
-- `versionCode`：2026100409 → 2026100410。
+- Tested `charge_control_limit` on Xiaomi 17 Pro, using zero for stop and `charge_control_limit_max` (16 on that device) for resume.
+- The probe now checks file permission bits and lists battery, USB, and wireless attributes.
+- Retained `charge_behaviour` support.
 
-## v5 — 20261004（versionCode 2026100409）
+## v5 — 20261004 (versionCode 2026100409)
 
-- 尝试适配小米 17 Pro：新增标准内核接口 `charge_behaviour`（`auto` / `inhibit-charge`）支持，并兼容带 `[当前值]` 的枚举显示；
-- `probe.sh` 新增「扩展扫描」：列出 `/sys/class` 顶层、`power_supply` / `qcom-battery` 等目录全部节点，以及所有名字含 charge / batt / suspend 的节点与可写性；
-- 小米 14 的反复充停修复保持不变；
-- `versionCode`：2026100408 → 2026100409。
+- Added initial support for standard `charge_behaviour` values `auto` and `inhibit-charge`, including a bracketed current value.
+- Extended the probe to list `/sys/class`, charging directories, and relevant node permissions.
+- Retained the Xiaomi 14 charge cycling fix.
 
-## v4 — 20261004（versionCode 2026100408）
+## v4 — 20261004 (versionCode 2026100408)
 
-- 修复小米 14 反复充电 / 停止：不再写入 `handle_stop_charging`（内核处理节点），避免每 6 秒重复触发；
-- 节点已是目标值时跳过写入，只有真正写入时才记录日志，日志不再刷屏；
-- 新增已实测机型：小米 14；
-- `versionCode`：2026100407 → 2026100408。
+- Fixed repeated charge cycling on Xiaomi 14 by skipping `handle_stop_charging`.
+- Skip writes when the node already holds the requested value and log actual changes only. Tested on Xiaomi 14.
 
-## v3 — 20261004（versionCode 2026100407）
+## v3 — 20261004 (versionCode 2026100407)
 
-- 新增 `updateJson`：刷入 v3 后，可在 Magisk / KernelSU / APatch 管理器里直接检测并更新后续版本；
-- 仓库根目录新增 `update.json`（版本清单）和本文件（管理器内更新说明）；
-- 模块版本显示改为 `20261004-v3`，`versionCode`：2026100406 → 2026100407；
-- v1 / v2 用户需要手动刷一次 v3，之后 v4+ 即可在管理器内更新。
+- Added `updateJson`, the update manifest, and in-manager release notes.
+- Users on v1 or v2 must install v3 manually before updating from a root manager.
 
-## v2 — 20261004（versionCode 2026100406）
+## v2 — 20261004 (versionCode 2026100406)
 
-- 新增高通 `qcom-battery/input_suspend` 节点支持（0=恢复充电，1=停止充电），骁龙机型实测可停充：红米 K40、红米 K50U；
-- `probe.sh` 与节点扫描同步支持 `/sys/class/qcom-battery`；
-- 现代版 `versionCode`：2026100405 → 2026100406。
+- Added Qualcomm `qcom-battery/input_suspend` support. Tested on Redmi K40 and Redmi K50U.
+- Added `/sys/class/qcom-battery` to the probe and node scan.
 
-## v1 — 20261004（versionCode 2026100405）
+## v1 — 20261004 (versionCode 2026100405)
 
-- 首个发布版本；
-- 现代模块安装器，支持 Magisk / KernelSU / ReSukiSU / APatch；
-- 配置热重载、移除联网自更新、`probe.sh` 诊断；
-- 安卓 1.6-5.x 遗留 root 实验版。
+- Initial release.
+- Added a Magisk, KernelSU, ReSukiSU, and APatch installer, live configuration reload, local diagnostics, and an experimental legacy root edition for Android 1.6–5.x.

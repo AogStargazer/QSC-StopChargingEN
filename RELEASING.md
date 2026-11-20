@@ -1,23 +1,10 @@
-# 发布流程
+# Release process
 
-每次发布新版本按下面步骤走，保证管理器内更新可用：
+1. Set `version` to `20261004-vN` and increment `versionCode` in both variants' `module.prop`. The current code is `2026100422`.
+2. Rebuild the modern ZIP in `dist/`, including the current `module.prop` and `README.txt`.
+3. Update `version`, `versionCode`, and `zipUrl` in `update.json`. Point `zipUrl` to the new release asset. Add the release to `CHANGELOG.md` and `README.md`. Put only the current release in `update-changelog.md` for the manager update dialog.
+4. Commit and push `main`.
+5. Create release tag `vN` with `QSC-StopCharging_A5-17_vN_20261004.zip` and `QSC-StopCharging_Legacy-Root_vN.zip`.
+6. Verify that `update.json` is accessible and valid JSON, the ZIP downloads, and the manager detects the new `versionCode`.
 
-1. 修改 `source/qsc-a5-17/module.prop` 与 `source/legacy-root/module.prop`：
-   - `version` 改为 `20261004-vN`
-   - `versionCode` 递增（当前为 `2026100422`）
-2. 重新打包 `dist/QSC定量停充_安卓5-17适配版_20261004.zip`（至少更新内部的 `module.prop` 与 `README.txt`）。
-3. 更新仓库根目录的：
-   - `update.json`：`version`、`versionCode`、`zipUrl` 指向新 Release 的 vN 附件
-   - `CHANGELOG.md`：补 vN 的更新内容
-   - `update-changelog.md`：只写本次 vN 的更新内容（管理器更新弹窗会展示这里）
-   - `README.md`：补更新日志
-4. 提交并推送 `main`。
-5. 创建 Release：
-   - tag：`vN`
-   - 附件：`QSC-StopCharging_A5-17_vN_20261004.zip`、`QSC-StopCharging_Legacy-Root_vN.zip`
-6. 验证：
-   - `update.json` 可访问且 JSON 合法
-   - `zipUrl` 能正常下载
-   - 管理器能识别新的 `versionCode`
-
-> 注意：`updateJson` 只在 v3 及以后的模块里内置，v1 / v2 需要手动刷一次 v3，之后才可以在管理器内更新。
+Versions 1 and 2 require a manual update to v3 before in-manager updates become available.
